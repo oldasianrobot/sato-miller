@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SATO-MILLER AAPI IDENTITY TEST · UNIT SM-1882</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0703;
+    --ink:#f5e3c2;
+    --dim:#8a7350;
+    --amber:#ffb000;
+    --amber-hot:#ffd060;
+    --red:#ff3522;
+    --green:#9aff5e;
+    --line:rgba(255,176,0,.20);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(130% 90% at 50% 0%, rgba(255,176,0,.05), transparent 55%),
+      radial-gradient(130% 110% at 50% 115%, rgba(255,53,34,.04), transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"Rajdhani",sans-serif;
+    overflow:hidden;
+    letter-spacing:.02em;
+  }
+  .crt-lines,.crt-vig,.crt-flick{position:fixed;inset:0;pointer-events:none;z-index:90}
+  .crt-lines{background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.24) 3px 4px);mix-blend-mode:multiply;opacity:.55}
+  .crt-vig{background:radial-gradient(120% 100% at 50% 50%,transparent 52%,rgba(0,0,0,.7) 100%)}
+  .crt-flick{background:rgba(255,176,0,.015);animation:flick 8s steps(70) infinite}
+  @keyframes flick{0%,96%{opacity:0}96.5%{opacity:.55}97%{opacity:0}98.2%{opacity:.4}100%{opacity:0}}
+
+  .wrap{position:relative;z-index:10;height:100%;display:flex;flex-direction:column;padding:14px clamp(12px,2.4vw,30px)}
+
+  /* HEADER */
+  header{display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  .sm-mark{width:46px;height:46px;flex:0 0 auto}
+  .title-block{flex:1;min-width:0}
+  .title-block h1{font-weight:300;font-size:clamp(14px,2vw,22px);letter-spacing:.38em;text-transform:uppercase}
+  .title-block .sub{font-family:"Share Tech Mono",monospace;font-size:9.5px;letter-spacing:.3em;color:var(--dim);text-transform:uppercase;margin-top:2px}
+  .mute-btn{font-family:"Share Tech Mono",monospace;font-size:10px;letter-spacing:.16em;color:var(--amber);background:transparent;border:1px solid var(--line);padding:5px 9px;cursor:pointer;text-transform:uppercase}
+  .mute-btn:hover{border-color:var(--amber)}
+  .status-rec{display:flex;align-items:center;gap:8px;font-family:"Share Tech Mono",monospace;font-size:11px;letter-spacing:.24em;color:var(--dim)}
+  .rec-dot{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 10px var(--red);animation:blink 1s steps(2,end) infinite}
+  @keyframes blink{50%{opacity:.12}}
+
+  /* TICKER BAR */
+  .newsbar{border-bottom:1px solid var(--line);overflow:hidden;height:26px;display:flex;align-items:center;font-family:"Share Tech Mono",monospace;font-size:10.5px;letter-spacing:.18em;color:var(--dim);white-space:nowrap}
+  .newsbar .label{color:var(--amber);padding:0 12px;border-right:1px solid var(--line);flex:0 0 auto}
+  .newsbar .scroll{display:inline-block;padding-left:100%;animation:marquee 38s linear infinite}
+  @keyframes marquee{to{transform:translateX(-100%)}}
+
+  /* MAIN */
+  main{flex:1;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.6fr) minmax(0,1.05fr);gap:14px;padding-top:12px;min-height:0}
+  .col{display:flex;flex-direction:column;gap:12px;min-height:0}
+  .panel{position:relative;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,176,0,.03),rgba(0,0,0,.2))}
+  .panel::before,.panel::after{content:"";position:absolute;width:11px;height:11px;border:1px solid var(--amber);opacity:.5}
+  .panel::before{top:-1px;left:-1px;border-right:none;border-bottom:none}
+  .panel::after{bottom:-1px;right:-1px;border-left:none;border-top:none}
+  .p-label{font-family:"Share Tech Mono",monospace;font-size:9.5px;letter-spacing:.28em;color:var(--dim);text-transform:uppercase;padding:6px 9px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+  .p-label b{color:var(--amber);font-weight:400}
+
+  /* optical feed */
+  .feed{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#050302}
+  canvas{display:block;width:100%;height:100%;object-fit:cover}
+  .det-label{position:absolute;left:10px;top:10px;font-family:"Share Tech Mono",monospace;font-size:11px;letter-spacing:.2em;color:var(--amber);text-shadow:0 0 8px var(--amber)}
+  .det-label.alert{color:var(--red);text-shadow:0 0 10px var(--red)}
+  .det-frame{position:absolute;inset:12%;border:1px dashed rgba(255,176,0,.0);transition:border-color .3s}
+  .det-frame.flagging{border-color:var(--red);box-shadow:0 0 24px rgba(255,53,34,.25) inset;animation:blink 1s steps(2) infinite}
+  .tag-tr{position:absolute;right:8px;top:8px;font-family:"Share Tech Mono",monospace;font-size:9px;color:var(--dim);letter-spacing:.18em;text-align:right;line-height:1.5}
+  .reticle{position:absolute;inset:0;pointer-events:none}
+  .reticle .cross{position:absolute;background:var(--amber);opacity:.55}
+  .reticle .h{left:8%;right:8%;top:50%;height:1px}
+  .reticle .v{top:8%;bottom:8%;left:50%;width:1px}
+  .reticle .ring{position:absolute;top:50%;left:50%;width:46%;height:74%;transform:translate(-50%,-50%);border:1px solid var(--amber);border-radius:50%;opacity:.3}
+  .mag{position:absolute;left:8px;bottom:8px;font-family:"Share Tech Mono",monospace;font-size:10px;color:var(--amber);letter-spacing:.18em;text-shadow:0 0 8px var(--amber)}
+
+  /* verdict lamps */
+  .lamps{display:flex;border-top:1px solid var(--line)}
+  .lamp{flex:1;padding:10px 8px;text-align:center;font-family:"Share Tech Mono",monospace;font-size:10px;letter-spacing:.18em;color:var(--dim);position:relative}
+  .lamp+.lamp{border-left:1px solid var(--line)}
+  .lamp .bulb{width:14px;height:14px;border-radius:50%;border:1px solid var(--dim);margin:0 auto 7px}
+  .lamp.lit{color:var(--red)}
+  .lamp.lit .bulb{background:var(--red);border-color:var(--red);box-shadow:0 0 16px var(--red);animation:blink .5s steps(2) infinite}
+
+  /* console */
+  .console{flex:1;display:flex;flex-direction:column;min-height:0}
+  .q-area{flex:1;display:flex;flex-direction:column;justify-content:center;padding:22px clamp(14px,2.2vw,30px);position:relative;overflow:hidden}
+  .q-index{font-family:"Share Tech Mono",monospace;font-size:11px;letter-spacing:.3em;color:var(--amber);text-transform:uppercase;margin-bottom:14px;min-height:14px}
+  .q-text{font-weight:400;font-size:clamp(18px,2.5vw,30px);line-height:1.32;min-height:3.4em}
+  .q-text .cur{display:inline-block;width:.55ch;background:var(--amber);box-shadow:0 0 10px var(--amber);animation:blink .9s steps(2) infinite;margin-left:2px}
+  .q-text.fault{color:var(--red);text-shadow:0 0 16px rgba(255,53,34,.45);font-size:clamp(22px,3vw,36px)}
+  .q-sub.fault{color:var(--red);font-size:13px}
+  .q-sub{font-family:"Share Tech Mono",monospace;font-size:10.5px;letter-spacing:.22em;color:var(--dim);text-transform:uppercase;margin-top:18px;min-height:14px}
+  .console-foot{border-top:1px solid var(--line);padding:12px clamp(14px,2.2vw,30px);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .hint{font-family:"Share Tech Mono",monospace;font-size:9.5px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase;flex:0 0 auto}
+  .answer-box{flex:1 1 200px;min-width:130px;background:rgba(0,0,0,.4);border:none;border-bottom:1px solid var(--amber);color:var(--ink);font-family:"Share Tech Mono",monospace;font-size:14px;padding:9px 11px;outline:none;caret-color:var(--amber)}
+  .answer-box::placeholder{color:var(--dim);letter-spacing:.14em}
+  .answer-box:disabled{opacity:.22}
+  button.act{font-family:"Rajdhani",sans-serif;font-weight:600;font-size:14px;letter-spacing:.24em;text-transform:uppercase;color:var(--bg);background:var(--amber);border:none;padding:12px 22px;cursor:pointer;box-shadow:0 0 20px rgba(255,176,0,.3);transition:filter .15s}
+  button.act:hover{filter:brightness(1.15)}
+  button.act:disabled{opacity:.25;cursor:not-allowed;box-shadow:none}
+  button.ghost{background:transparent;color:var(--amber);border:1px solid var(--amber);box-shadow:none}
+
+  /* compliment toast */
+  .compliment{position:absolute;left:50%;top:14px;transform:translateX(-50%) translateY(-8px);border:1px solid var(--amber);background:rgba(10,7,3,.95);padding:12px 22px;font-family:"Share Tech Mono",monospace;font-size:12px;letter-spacing:.16em;color:var(--amber-hot);opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;text-transform:uppercase;box-shadow:0 0 26px rgba(255,176,0,.18)}
+  .compliment.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .compliment .tag{display:block;font-size:8.5px;color:var(--dim);margin-top:5px;letter-spacing:.24em}
+
+  /* readouts */
+  .readouts{display:flex;flex-direction:column}
+  .ro{padding:8px 11px;border-bottom:1px solid var(--line)}
+  .ro:last-child{border-bottom:none}
+  .ro-top{display:flex;justify-content:space-between;align-items:baseline;font-family:"Share Tech Mono",monospace}
+  .ro-name{font-size:9.5px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase}
+  .ro-val{font-size:12.5px}
+  .ro-val.hot{color:var(--red);text-shadow:0 0 8px var(--red)}
+  .meter{height:7px;margin-top:6px;background:rgba(255,255,255,.05);position:relative;overflow:hidden}
+  .meter .bar{position:absolute;inset:0 100% 0 0;background:linear-gradient(90deg,var(--amber),var(--red) 85%);transition:right .12s linear}
+  .meter .ticks{position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 9px,rgba(0,0,0,.5) 9px 10px)}
+
+  /* assimilation */
+  .assim{padding:10px 11px}
+  .assim .big{display:flex;justify-content:space-between;align-items:baseline;font-family:"Share Tech Mono",monospace}
+  .assim .pct{font-size:24px;color:var(--amber-hot)}
+  .assim .st{font-size:8.5px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase;text-align:right;line-height:1.6}
+  .assim .meter{height:10px;margin-top:8px}
+  .assim .crit{font-family:"Share Tech Mono",monospace;font-size:9px;letter-spacing:.14em;color:var(--dim);margin-top:8px;min-height:12px;text-transform:uppercase}
+  .assim .fine{font-family:"Share Tech Mono",monospace;font-size:7.5px;letter-spacing:.1em;color:var(--dim);opacity:.65;margin-top:6px}
+
+  .diagfeed{flex:1;min-height:50px;overflow:hidden;font-family:"Share Tech Mono",monospace;font-size:9.5px;line-height:1.55;color:var(--amber);opacity:.6;padding:8px 10px;white-space:pre-wrap;word-break:break-word}
+
+  /* OVERLAYS */
+  .overlay{position:fixed;inset:0;z-index:80;background:rgba(6,4,1,.95);display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:28px}
+  .overlay.hidden{display:none}
+  .gate-card{max-width:600px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,176,0,.04),rgba(0,0,0,.3));padding:32px 36px}
+  .gate-card h2{font-weight:300;letter-spacing:.3em;font-size:21px;text-transform:uppercase;margin-bottom:6px}
+  .gate-card .ds{font-family:"Share Tech Mono",monospace;font-size:10px;letter-spacing:.26em;color:var(--amber);margin-bottom:20px}
+  .gate-card p{font-size:15px;line-height:1.55;color:var(--dim);margin-bottom:14px;font-weight:300}
+  .gate-card .legal{font-family:"Share Tech Mono",monospace;font-size:10.5px;line-height:1.7;color:var(--ink);background:rgba(0,0,0,.4);border-left:2px solid var(--amber);padding:13px 15px;text-align:left;margin-bottom:22px}
+  @keyframes initPulse{0%,100%{box-shadow:0 0 12px rgba(255,176,0,.4)}50%{box-shadow:0 0 30px rgba(255,176,0,.9)}}
+  .initiate-btn{font-size:16px;padding:14px 34px;animation:initPulse 1.6s ease-in-out infinite}
+
+  /* boot */
+  .boot-line{font-family:"Share Tech Mono",monospace;font-size:12.5px;letter-spacing:.1em;color:var(--amber);max-width:640px;text-align:left;width:100%;white-space:pre-wrap;line-height:1.75;min-height:420px}
+  .boot-line .hi{color:var(--amber-hot)}
+
+  /* kevin */
+  .kevin-card{max-width:540px;border:1px solid var(--amber);padding:36px 40px;background:rgba(0,0,0,.4)}
+  .kevin-card .kq{font-size:clamp(20px,3vw,30px);font-weight:400;line-height:1.35;margin-bottom:26px}
+  .kevin-btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+
+  /* crash */
+  #crash{background:rgba(6,4,1,.97)}
+  .crash-line{font-family:"Share Tech Mono",monospace;font-size:clamp(13px,2vw,19px);letter-spacing:.14em;color:var(--red);text-align:left;max-width:640px;width:100%;white-space:pre-wrap;line-height:1.9;text-shadow:0 0 12px rgba(255,53,34,.5)}
+  body.glitch .wrap,body.glitch .overlay{animation:glitchShake .09s steps(2) infinite}
+  @keyframes glitchShake{0%{transform:translate(0)}25%{transform:translate(-3px,1px)}50%{transform:translate(2px,-2px)}75%{transform:translate(-1px,2px)}100%{transform:translate(1px,0)}}
+
+  /* ticker verdict */
+  #ticker .t-inner{display:flex;flex-direction:column;align-items:center;gap:10px;animation:vfade .8s ease both;max-width:720px;width:100%}
+  @keyframes vfade{from{opacity:0;transform:scale(.97)}to{opacity:1}}
+  .t-pre{font-family:"Share Tech Mono",monospace;letter-spacing:.36em;font-size:11px;color:var(--dim);text-transform:uppercase}
+  .t-status{font-weight:700;font-size:clamp(26px,5.5vw,62px);letter-spacing:.08em;line-height:1.1;text-transform:uppercase;color:var(--amber-hot);text-shadow:0 0 36px rgba(255,176,0,.4);min-height:1.1em;text-align:center}
+  .t-status.bad{color:var(--red);text-shadow:0 0 36px rgba(255,53,34,.5)}
+  .t-index{font-family:"Share Tech Mono",monospace;font-size:clamp(18px,3vw,28px);letter-spacing:.14em;color:var(--ink)}
+  .t-index .delta{font-size:.7em}
+  .t-index .up{color:var(--green)} .t-index .down{color:var(--red)}
+  .t-head{font-family:"Share Tech Mono",monospace;font-size:15px;letter-spacing:.18em;color:var(--ink);text-transform:uppercase;min-height:20px}
+  .t-note{font-size:15px;font-weight:300;color:var(--dim);max-width:520px;line-height:1.55;margin-top:10px}
+  .t-fine{font-family:"Share Tech Mono",monospace;font-size:8.5px;letter-spacing:.14em;color:var(--dim);opacity:.7;margin-top:14px;line-height:1.8;text-transform:uppercase}
+
+  @media (max-width:880px){
+    main{grid-template-columns:1fr 1fr}
+    .col.center{grid-column:1/-1;order:-1}
+    .feed{min-height:140px}
+  }
+  @media (max-width:560px){ main{grid-template-columns:1fr} .col.center{order:-1} }
+</style>
+</head>
+<body>
+<div class="crt-lines"></div><div class="crt-vig"></div><div class="crt-flick"></div>
+
+<div class="wrap">
+  <header>
+    <svg class="sm-mark" viewBox="0 0 48 48" aria-hidden="true">
+      <rect x="3" y="3" width="42" height="42" fill="none" stroke="var(--amber)" stroke-width="1.4" opacity=".65"/>
+      <text x="24" y="22" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="13" fill="var(--amber)">SM</text>
+      <text x="24" y="37" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="9" fill="var(--amber)" opacity=".7">1882</text>
+    </svg>
+    <div class="title-block">
+      <h1>Sato&#8211;Miller AAPI Identity Test</h1>
+      <div class="sub">A Voight&#8209;Kampff Auxiliary Module &#183; Unit SM&#8209;1882 &#183; Precinct Procurement Div.</div>
+    </div>
+    <button id="muteBtn" class="mute-btn" title="Toggle sound">&#9834; ON</button>
+    <div class="status-rec"><span class="rec-dot"></span>REC</div>
+  </header>
+
+  <div class="newsbar">
+    <span class="label">WIRE</span>
+    <span class="scroll" id="newsScroll">AWAITING FEED ...</span>
+  </div>
+
+  <main>
+    <!-- LEFT: optical -->
+    <div class="col">
+      <div class="panel" style="flex:1.15;display:flex;flex-direction:column">
+        <div class="p-label">SUBJECT TRACKING <b id="optStat">OFFLINE</b></div>
+        <div class="feed">
+          <canvas id="optCanvas"></canvas>
+          <div class="det-label" id="detLabel"></div>
+          <div class="tag-tr">LANDMARKS<br><span id="lmCount">0</span></div>
+          <div class="det-frame" id="detFrame"></div>
+        </div>
+      </div>
+      <div class="panel" style="flex:1;display:flex;flex-direction:column">
+        <div class="p-label">OCULAR MAGNIFICATION <b id="eyeStat">OFFLINE</b></div>
+        <div class="feed">
+          <canvas id="eyeCanvas"></canvas>
+          <div class="reticle"><div class="cross h"></div><div class="cross v"></div><div class="ring"></div></div>
+          <div class="mag" id="magLabel">&#215;0.0</div>
+        </div>
+        <div class="lamps">
+          <div class="lamp" id="lampF"><div class="bulb"></div>FOREIGN</div>
+          <div class="lamp" id="lampRF"><div class="bulb"></div>REALLY FOREIGN</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: console -->
+    <div class="col center">
+      <div class="panel console">
+        <div class="p-label">CLASSIFICATION CONSOLE <b id="caseId">CASE&#8211;0000</b></div>
+        <div class="q-area">
+          <div class="compliment" id="compliment"></div>
+          <div class="q-index" id="qIndex"></div>
+          <div class="q-text" id="qText"></div>
+          <div class="q-sub" id="qSub"></div>
+        </div>
+        <div class="console-foot">
+          <span class="hint" id="footHint">STANDBY</span>
+          <input id="answerBox" class="answer-box" type="text" autocomplete="off" spellcheck="false" placeholder="// RESPONSE" disabled />
+          <button class="act" id="btnA" disabled>TRANSMIT</button>
+          <button class="act ghost" id="btnB" style="display:none">B</button>
+          <button class="act ghost" id="btnC" style="display:none">C</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: readouts -->
+    <div class="col">
+      <div class="panel readouts">
+        <div class="ro" data-k="defer"><div class="ro-top"><span class="ro-name">Deference Curve</span><span class="ro-val">0%</span></div><div class="meter"><div class="bar"></div><div class="ticks"></div></div></div>
+        <div class="ro" data-k="quiet"><div class="ro-top"><span class="ro-name">Quietness Index</span><span class="ro-val">0%</span></div><div class="meter"><div class="bar"></div><div class="ticks"></div></div></div>
+        <div class="ro" data-k="artic"><div class="ro-top"><span class="ro-name">Articulateness (Surprise)</span><span class="ro-val">0%</span></div><div class="meter"><div class="bar"></div><div class="ticks"></div></div></div>
+        <div class="ro" data-k="foreign"><div class="ro-top"><span class="ro-name">Foreignness Coefficient</span><span class="ro-val">0%</span></div><div class="meter"><div class="bar"></div><div class="ticks"></div></div></div>
+      </div>
+      <div class="panel assim">
+        <div class="big"><span class="pct" id="assimPct">0.0%</span><span class="st">AMERICANNESS<br><span id="assimStat">MEASURING</span></span></div>
+        <div class="meter"><div class="bar" id="assimBar"></div><div class="ticks"></div></div>
+        <div class="crit" id="assimCrit"></div>
+        <div class="fine">CEILING 99.2% &#183; FURTHER REVIEW PENDING SINCE 1882 &#183; NO APPEAL PROCESS EXISTS</div>
+      </div>
+      <div class="panel diagfeed" id="diag"></div>
+    </div>
+  </main>
+</div>
+
+<!-- POWER -->
+<div class="overlay" id="power">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center">
+    <svg width="70" height="70" viewBox="0 0 48 48"><rect x="3" y="3" width="42" height="42" fill="none" stroke="var(--amber)" stroke-width="1.4" opacity=".7"/><text x="24" y="22" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="13" fill="var(--amber)">SM</text><text x="24" y="37" text-anchor="middle" font-family="'Share Tech Mono',monospace" font-size="9" fill="var(--amber)" opacity=".7">1882</text></svg>
+    <div style="font-weight:300;letter-spacing:.4em;font-size:21px;text-transform:uppercase">Sato&#8211;Miller AAPI Identity Test</div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.3em;color:var(--dim)">[ AUXILIARY MODULE POWERED DOWN ]</div>
+    <button class="act initiate-btn" id="initiateBtn">INITIATE MODULE</button>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.2em;color:var(--dim);max-width:320px;line-height:1.7">TAP TO POWER ON &#183; ENABLES SOUND + DISPLAY</div>
+  </div>
+</div>
+
+<!-- GATE -->
+<div class="overlay hidden" id="gate">
+  <div class="gate-card">
+    <h2>Citizenship Plausibility Screening</h2>
+    <div class="ds">// AUTHORIZATION REQUIRED &#183; SATIRE THROUGHOUT</div>
+    <p>The Sato&#8209;Miller auxiliary classifies the subject's national belonging with total confidence and no coherent method. Sit still. The machine will take it from here.</p>
+    <div class="legal" style="font-size:12px;border-left-width:3px">
+      ENTERTAINMENT NOTICE: This is a satirical web toy. The camera feed, if enabled, is processed <b>only</b> in your browser. No image, video, facial landmark, or biometric data is recorded, stored, or transmitted anywhere. The scans, landmark meshes, readouts, scores, and verdicts are pure theater. Closing the tab erases everything. This device determines nothing real about you. The machine is the joke. You are not.
+    </div>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+      <button class="act" id="gateCam">ACTIVATE CAMERA</button>
+      <button class="act ghost" id="gateNoCam">RUN WITHOUT CAMERA</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOOT -->
+<div class="overlay hidden" id="boot"><div class="boot-line" id="bootLine"></div></div>
+
+<!-- NAME CONVENIENCE -->
+<div class="overlay hidden" id="kevin">
+  <div class="kevin-card">
+    <div style="font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.28em;color:var(--dim);margin-bottom:16px">NAME CONVENIENCE MODULE</div>
+    <div class="kq" id="kevinQ">WOULD YOU LIKE TO BE CALLED [NAME] INSTEAD?</div>
+    <div class="kevin-btns">
+      <button class="act" id="kevinYes">YES</button>
+      <button class="act" id="kevinAlsoYes">ALSO YES</button>
+    </div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:8.5px;letter-spacing:.18em;color:var(--dim);margin-top:18px">A DECLINE OPTION WAS NOT BUDGETED</div>
+  </div>
+</div>
+
+<!-- CRASH -->
+<div class="overlay hidden" id="crash"><div class="crash-line" id="crashLine"></div></div>
+
+<!-- TICKER VERDICT -->
+<div class="overlay hidden" id="ticker">
+  <div class="t-inner">
+    <div class="t-pre">FINAL CLASSIFICATION UNAVAILABLE &#183; LIVE ACCEPTANCE INDEX SUBSTITUTED</div>
+    <div class="t-status" id="tStatus">UNDER REVIEW</div>
+    <div class="t-index">INDEX <span id="tIndex">62.00</span> <span class="delta" id="tDelta"></span></div>
+    <div class="t-head" id="tHead"></div>
+    <div class="t-note">The index moves on headlines, trade relations, and variables unrelated to you. It was never measuring you. It never settles.</div>
+    <div class="t-fine">SUBJECT INPUT: NOT A FACTOR &#183; METHODOLOGY LICENSED FROM: MILLER, S., WASHINGTON D.C. (2025) &#183; UNIT SM&#8209;1882</div>
+    <button class="act ghost" id="restartBtn" style="margin-top:22px">RUN NEW SCREENING</button>
+  </div>
+</div>
+
+<video id="cam" autoplay muted playsinline style="display:none"></video>
+
+<script>
+/* ============ HELPERS ============ */
+const $=s=>document.querySelector(s);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const rand=(a,b)=>a+Math.random()*(b-a);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+/* ============ STATE ============ */
+const NAMES=["ALEX","RIVER","LEE","CASEY","KIM","KHAI","AVERY","SKY"];
+let kevinName="ALEX", subjectName="SUBJECT", haveCam=false, frameCount=0;
+let scanActive=false, running=false, complimentTimer=null, tickerTimer=null;
+let landmarker=null, tracking=false, lastIris=null, lastLM=null;
+const cam=$("#cam");
+const optCanvas=$("#optCanvas"), optCtx=optCanvas.getContext("2d");
+const eyeCanvas=$("#eyeCanvas"), eyeCtx=eyeCanvas.getContext("2d");
+
+async function initLandmarker(){
+  try{
+    const vision=await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
+    const {FaceLandmarker,FilesetResolver}=vision;
+    const fileset=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+    landmarker=await FaceLandmarker.createFromOptions(fileset,{
+      baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"},
+      runningMode:"VIDEO",numFaces:1});
+    tracking=true;
+    diag("LANDMARK ENGINE ONLINE. 478-POINT FACIAL MESH ARMED.");
+  }catch(e){
+    tracking=false;
+    diag("LANDMARK ENGINE UNAVAILABLE. FALLING BACK TO CENTER ESTIMATE.");
+  }
+}
+
+/* ============ AUDIO ============ */
+const AUD=(()=>{
+  let ctx=null,master=null,muted=false;
+  const T=()=>ctx.currentTime;
+  function init(){ if(ctx){if(ctx.state==="suspended")ctx.resume();return;}
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return;
+    ctx=new AC(); master=ctx.createGain(); master.gain.value=muted?0:0.8; master.connect(ctx.destination);}
+  function tone({freq=440,to=null,type="sine",dur=.2,peak=.18,attack=.01,release=.1}={}){
+    if(!ctx)return; const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type=type;o.frequency.setValueAtTime(freq,T());
+    if(to)o.frequency.exponentialRampToValueAtTime(Math.max(1,to),T()+dur);
+    g.gain.setValueAtTime(.0001,T());g.gain.exponentialRampToValueAtTime(peak,T()+attack);
+    g.gain.exponentialRampToValueAtTime(.0001,T()+dur+release);
+    o.connect(g).connect(master);o.start();o.stop(T()+dur+release+.05);}
+  function noise({dur=.3,type="lowpass",freq=700,q=1,peak=.18}={}){
+    if(!ctx)return; const len=Math.floor(ctx.sampleRate*dur),buf=ctx.createBuffer(1,len,ctx.sampleRate),d=buf.getChannelData(0);
+    for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+    const src=ctx.createBufferSource();src.buffer=buf;
+    const f=ctx.createBiquadFilter();f.type=type;f.frequency.value=freq;f.Q.value=q;
+    const g=ctx.createGain();g.gain.setValueAtTime(peak,T());g.gain.exponentialRampToValueAtTime(.0001,T()+dur);
+    src.connect(f).connect(g).connect(master);src.start();}
+  function drone(freq,type,peak){ if(!ctx)return null;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(.0001,T());g.gain.linearRampToValueAtTime(peak,T()+.8);
+    o.connect(g).connect(master);o.start();return{o,g};}
+  function stopDrone(n,rel=.6){ if(!ctx||!n)return;
+    n.g.gain.cancelScheduledValues(T());n.g.gain.setValueAtTime(n.g.gain.value,T());
+    n.g.gain.linearRampToValueAtTime(.0001,T()+rel);n.o.stop(T()+rel+.05);}
+  return{init,tone,noise,drone,stopDrone,
+    isMuted:()=>muted, setMuted(m){muted=m;if(master)master.gain.value=m?0:0.8;},
+    powerOn(){init();tone({freq:48,to:110,type:"sine",dur:.8,peak:.45,attack:.05,release:.3});noise({dur:.3,freq:380,peak:.2});},
+    blip(){tone({freq:880+Math.random()*160,type:"square",dur:.03,peak:.04,attack:.002,release:.03});},
+    tick(){tone({freq:1700+Math.random()*300,type:"square",dur:.012,peak:.016,attack:.001,release:.012});},
+    chime(){tone({freq:660,dur:.1,peak:.11});setTimeout(()=>tone({freq:990,dur:.18,peak:.11}),95);},
+    confirm(){tone({freq:420,type:"sine",dur:.07,peak:.07,attack:.005,release:.07});tone({freq:210,type:"sine",dur:.09,peak:.05,attack:.005,release:.08});},
+    deny(){tone({freq:240,to:110,type:"triangle",dur:.22,peak:.09,release:.08});},
+    scanSweep(){tone({freq:300,to:880,type:"sawtooth",dur:.32,peak:.12,release:.14});noise({dur:.18,type:"bandpass",freq:1100,q:2,peak:.07});},
+    compliment(){tone({freq:660,dur:.07,peak:.09});setTimeout(()=>tone({freq:880,dur:.12,peak:.09}),70);},
+    alarm(){for(let i=0;i<3;i++)setTimeout(()=>{tone({freq:220,to:80,type:"sawtooth",dur:.32,peak:.18});tone({freq:233,to:85,type:"square",dur:.32,peak:.09});noise({dur:.18,type:"highpass",freq:1500,peak:.06});},i*400);},
+    flagAlarm(){for(let i=0;i<5;i++)setTimeout(()=>{tone({freq:i%2?740:980,type:"square",dur:.06,peak:.12,attack:.003,release:.04});},i*105);},
+    crashHit(){tone({freq:120,to:30,type:"sawtooth",dur:.6,peak:.3});noise({dur:.5,freq:250,peak:.3});},
+    tickerTick(){tone({freq:520,type:"sine",dur:.025,peak:.022,attack:.002,release:.03});}
+  };
+})();
+let bootDrone=null, bedDrone=null;
+
+/* ============ DIAGNOSTICS FEED ============ */
+function diag(line){
+  const el=$("#diag");
+  el.textContent=("> "+line+"\n"+el.textContent).split("\n").slice(0,30).join("\n");
+}
+
+/* ============ NEWS WIRE ============ */
+const WIRE=[
+  "SUMMIT ENDS WITHOUT AGREEMENT","NEW TARIFFS ANNOUNCED ON 4,000 GOODS","TECH RIVALRY INTENSIFIES, SOURCES SAY",
+  "REGIONAL BOBA CHAIN EXPANDS TO MIDWEST","FILM WITH ASIAN LEAD BREAKS RECORDS","ELECTION SEASON OFFICIALLY BEGINS",
+  "SUPPLY CHAIN TENSIONS EASE SLIGHTLY","CELEBRITY CHEF DISCOVERS CONGEE","SISTER-CITY AGREEMENT QUIETLY DISSOLVED",
+  "STUDY FINDS RANCH SALES AT ALL-TIME HIGH","NAVAL EXERCISE SCHEDULED NEAR STRAIT","NOODLE PRICES STABLE"
+];
+function setWire(){ $("#newsScroll").textContent = "  "+WIRE.sort(()=>Math.random()-.5).join("  +++  ")+"  +++"; }
+
+/* ============ OPTICAL FEED ============ */
+function resizeCanvas(){ for(const c of [optCanvas,eyeCanvas]){ const r=c.getBoundingClientRect(); c.width=Math.max(2,r.width); c.height=Math.max(2,r.height); } }
+window.addEventListener("resize",resizeCanvas);
+
+function renderLoop(){
+  frameCount++;
+  const liveVideo = haveCam && cam.readyState>=2 && cam.videoWidth>0;
+
+  // ---- LANDMARK DETECTION ----
+  if(liveVideo && landmarker && tracking){
+    try{
+      const res=landmarker.detectForVideo(cam,performance.now());
+      if(res.faceLandmarks && res.faceLandmarks[0]){
+        lastLM=res.faceLandmarks[0];
+        const iris=lastLM[468]||lastLM[473];
+        if(iris)lastIris={x:iris.x,y:iris.y};
+        $("#lmCount").textContent=lastLM.length;
+      } else { lastLM=null; $("#lmCount").textContent="0"; }
+    }catch(e){}
+  }
+
+  // ---- SUBJECT TRACKING FEED ----
+  const c=optCanvas,ctx=optCtx;
+  let drawMap=null; // mirror mapping for landmark overlay
+  if(liveVideo){
+    const vr=cam.videoWidth/cam.videoHeight, cr=c.width/c.height;
+    let sw=cam.videoWidth,sh=cam.videoHeight,sx=0,sy=0;
+    if(vr>cr){sw=cam.videoHeight*cr;sx=(cam.videoWidth-sw)/2;}else{sh=cam.videoWidth/cr;sy=(cam.videoHeight-sh)/2;}
+    ctx.save();ctx.translate(c.width,0);ctx.scale(-1,1);
+    ctx.drawImage(cam,sx,sy,sw,sh,0,0,c.width,c.height);
+    ctx.restore();
+    ctx.globalCompositeOperation="overlay";
+    ctx.fillStyle="rgba(255,176,0,.4)";ctx.fillRect(0,0,c.width,c.height);
+    ctx.globalCompositeOperation="multiply";
+    ctx.fillStyle="rgba(255,200,80,.85)";ctx.fillRect(0,0,c.width,c.height);
+    ctx.globalCompositeOperation="source-over";
+    drawMap=(lx,ly)=>{
+      const px=lx*cam.videoWidth, py=ly*cam.videoHeight;
+      return { x: c.width-((px-sx)/sw)*c.width, y: ((py-sy)/sh)*c.height };
+    };
+    // landmark mesh dots
+    if(lastLM && drawMap){
+      ctx.fillStyle="rgba(255,210,90,.8)";
+      for(let i=0;i<lastLM.length;i+=2){
+        const p=drawMap(lastLM[i].x,lastLM[i].y);
+        if(p.x>=0&&p.x<=c.width&&p.y>=0&&p.y<=c.height)ctx.fillRect(p.x,p.y,1.4,1.4);
+      }
+      // brighter iris markers
+      ctx.fillStyle="var(--amber)";ctx.fillStyle="rgba(255,176,0,1)";
+      for(const idx of [468,473]){ if(lastLM[idx]){const p=drawMap(lastLM[idx].x,lastLM[idx].y);
+        ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();}}
+    }
+  } else {
+    ctx.fillStyle="#050302";ctx.fillRect(0,0,c.width,c.height);
+    for(let i=0;i<70;i++){const g=Math.random();
+      ctx.fillStyle="rgba("+Math.round(255*g)+","+Math.round(176*g)+",0,"+(0.03+g*0.1).toFixed(3)+")";
+      ctx.fillRect(Math.random()*c.width,Math.random()*c.height,Math.random()*36+4,Math.random()*2.5+1);}
+    // simulated landmark constellation
+    ctx.fillStyle="rgba(255,210,90,.5)";
+    for(let i=0;i<60;i++){
+      const a=i*0.55+frameCount*0.004;
+      ctx.fillRect(c.width/2+Math.cos(a)*c.width*0.16*(1+0.3*Math.sin(i)), c.height/2+Math.sin(a*1.3)*c.height*0.2,1.4,1.4);}
+    $("#lmCount").textContent="478 (SIM)";
+    ctx.fillStyle="rgba(255,176,0,.45)";ctx.font="10px 'Share Tech Mono',monospace";
+    ctx.fillText("// NO OPTICAL FEED · SIMULATING SUBJECT",10,c.height-12);
+  }
+  if(scanActive){
+    const y=(frameCount*2.6)%c.height;
+    ctx.fillStyle="rgba(255,220,120,.13)";ctx.fillRect(0,y,c.width,3);
+  }
+  ctx.fillStyle="rgba(0,0,0,.14)";
+  for(let y=frameCount%4;y<c.height;y+=4)ctx.fillRect(0,y,c.width,1);
+
+  // ---- OCULAR MAGNIFICATION ----
+  const ec=eyeCanvas, ex=eyeCtx;
+  if(liveVideo){
+    const vw=cam.videoWidth,vh=cam.videoHeight;
+    let cx2,cy2;
+    if(lastIris){cx2=lastIris.x*vw;cy2=lastIris.y*vh;}else{cx2=vw*0.5;cy2=vh*0.42;}
+    const zoom=scanActive?7.5:5.5;
+    $("#magLabel").textContent="\u00D7"+zoom.toFixed(1);
+    const srcW=vw/zoom, srcH=srcW*(ec.height/ec.width);
+    let sx2=Math.max(0,Math.min(vw-srcW,cx2-srcW/2)), sy2=Math.max(0,Math.min(vh-srcH,cy2-srcH/2));
+    ex.save();ex.translate(ec.width,0);ex.scale(-1,1);
+    ex.drawImage(cam,sx2,sy2,srcW,srcH,0,0,ec.width,ec.height);
+    ex.restore();
+    ex.globalCompositeOperation="overlay";
+    ex.fillStyle="rgba(255,176,0,.38)";ex.fillRect(0,0,ec.width,ec.height);
+    ex.globalCompositeOperation="source-over";
+    const sweep=(frameCount*3)%ec.height;
+    ex.fillStyle="rgba(255,255,255,.09)";ex.fillRect(0,sweep,ec.width,2);
+  } else {
+    ex.fillStyle="#050302";ex.fillRect(0,0,ec.width,ec.height);
+    // simulated pupil
+    const px=ec.width/2+Math.sin(frameCount*0.01)*8, py=ec.height/2+Math.cos(frameCount*0.013)*5;
+    ex.strokeStyle="rgba(255,176,0,.5)";ex.lineWidth=1;
+    ex.beginPath();ex.arc(px,py,Math.min(ec.width,ec.height)*0.22,0,Math.PI*2);ex.stroke();
+    ex.fillStyle="rgba(255,176,0,.25)";
+    ex.beginPath();ex.arc(px,py,Math.min(ec.width,ec.height)*0.08,0,Math.PI*2);ex.fill();
+    $("#magLabel").textContent="\u00D7SIM";
+  }
+  ex.fillStyle="rgba(0,0,0,.14)";
+  for(let y=frameCount%4;y<ec.height;y+=4)ex.fillRect(0,y,ec.width,1);
+
+  updateMeters();
+  requestAnimationFrame(renderLoop);
+}
+
+/* ============ BIOMETERS ============ */
+const METERS={
+  defer:  {base:58,amp:6, freq:.012,ph:0,  val:0},
+  quiet:  {base:64,amp:8, freq:.02, ph:1.4,val:0},
+  artic:  {base:30,amp:5, freq:.016,ph:.7, val:0},
+  foreign:{base:71,amp:9, freq:.009,ph:2.1,val:0},
+};
+let meterSpike=-1e9, complimentSpike=-1e9;
+function updateMeters(){
+  const now=performance.now();
+  const spike=Math.max(
+    now-meterSpike<1500?Math.exp(-(now-meterSpike)/520):0,
+    now-complimentSpike<2000?Math.exp(-(now-complimentSpike)/700):0
+  );
+  for(const k in METERS){const m=METERS[k];
+    const boost=spike*(k==="foreign"?26:k==="quiet"?-22:k==="artic"?24:18);
+    const target=m.base+Math.sin(frameCount*m.freq+m.ph)*m.amp+Math.sin(now*.0004+m.ph)*4+boost+(Math.random()-.5)*2;
+    m.val+=(target-m.val)*.1;
+    const pct=Math.max(2,Math.min(99,m.val));
+    const el=document.querySelector('[data-k='+k+']');
+    el.querySelector(".bar").style.right=(100-pct)+"%";
+    const v=el.querySelector(".ro-val");
+    v.textContent=Math.round(pct)+"%";
+    v.classList.toggle("hot",pct>82);
+  }
+}
+
+/* ============ ASSIMILATION ASYMPTOTE ============ */
+const CRITERIA=["RANCH TOLERANCE","LAWN OWNERSHIP","SMALL-TALK ENDURANCE","CASSEROLE FAMILIARITY","PUMPKIN SPICE RECEPTIVITY","FANTASY FOOTBALL LITERACY","GARAGE UTILIZATION","CUL-DE-SAC AFFINITY","POTLUCK COMPLIANCE","FIREWORK ENTHUSIASM"];
+let assimVal=0, assimTarget=12;
+function assimTick(){
+  assimVal+=(assimTarget-assimVal)*.04;
+  const v=Math.min(99.2,assimVal);
+  $("#assimPct").textContent=v.toFixed(1)+"%";
+  $("#assimBar").style.right=(100-v)+"%";
+  $("#assimStat").textContent = v>=99.19 ? "PENDING FURTHER REVIEW" : "MEASURING";
+  requestAnimationFrame(assimTick);
+}
+function assimAdvance(){
+  assimTarget=Math.min(99.2,assimTarget+rand(9,16));
+  $("#assimCrit").textContent="EVALUATING: "+pick(CRITERIA);
+  diag("ASSIM CRITERION PASSED: "+pick(CRITERIA)+" (+"+(rand(2,8).toFixed(1))+")");
+}
+
+/* ============ COMPLIMENT ENGINE ============ */
+const COMPLIMENTS=["YOUR ENGLISH IS EXCELLENT.","YOU ARE VERY ARTICULATE.","WHERE DID YOU LEARN TO SPEAK SO WELL?","YOU MUST BE GOOD AT MATH.","SO WELL-SPOKEN. REMARKABLE.","YOU PEOPLE ARE SO HARDWORKING."];
+function fireCompliment(){
+  const el=$("#compliment");
+  el.innerHTML=pick(COMPLIMENTS)+'<span class="tag">COMPLIMENT ISSUED &#183; STRESS ANOMALY LOGGED IN SUBJECT</span>';
+  el.classList.add("show");
+  complimentSpike=performance.now();
+  AUD.compliment();
+  diag("COMPLIMENT ENGINE: PAYLOAD DELIVERED. SUBJECT STRESS +34%. CAUSE: UNKNOWN.");
+  setTimeout(()=>el.classList.remove("show"),3400);
+}
+
+/* ============ CONSOLE PRIMITIVES ============ */
+async function typeOn(text){
+  const el=$("#qText");let i=0;
+  return new Promise(res=>{(function t(){
+    el.innerHTML=text.slice(0,i)+'<span class="cur">&nbsp;</span>';
+    if(i<text.length){if(i%3===0)AUD.tick();i++;setTimeout(t,20);}
+    else{el.innerHTML=text;res();}
+  })();});
+}
+function setStage(idx,total,label){ $("#qIndex").textContent = label || ("PROMPT "+idx+" / "+total); }
+function waitText(placeholder){
+  return new Promise(res=>{
+    const box=$("#answerBox"),btn=$("#btnA");
+    box.disabled=false;box.value="";box.placeholder=placeholder||"// RESPONSE";box.focus();
+    btn.disabled=false;btn.textContent="TRANSMIT";
+    $("#footHint").textContent="TYPE, THEN TRANSMIT";
+    scanActive=true;
+    const go=()=>{const v=box.value.trim();
+      box.disabled=true;btn.disabled=true;scanActive=false;
+      btn.removeEventListener("click",go);box.removeEventListener("keydown",kd);
+      meterSpike=performance.now();AUD.confirm();res(v);};
+    const kd=e=>{if(e.key==="Enter"){e.preventDefault();go();}};
+    btn.addEventListener("click",go);box.addEventListener("keydown",kd);
+  });
+}
+function waitButtons(labels){
+  return new Promise(res=>{
+    const btns=[$("#btnA"),$("#btnB"),$("#btnC")];
+    $("#answerBox").disabled=true;
+    $("#footHint").textContent="SELECT";
+    scanActive=true;
+    labels.forEach((l,i)=>{const b=btns[i];b.style.display="";b.disabled=false;b.textContent=l;});
+    const cleanup=()=>{btns.forEach((b,i)=>{b.disabled=true;if(i>0)b.style.display="none";});scanActive=false;};
+    btns.forEach((b,i)=>{ if(i>=labels.length){b.style.display="none";return;}
+      b.onclick=()=>{cleanup();btns.forEach(x=>x.onclick=null);meterSpike=performance.now();AUD.confirm();res(labels[i]);};
+    });
+  });
+}
+async function machineSays(sub,ms=1400){ $("#qSub").textContent=sub; await sleep(ms); }
+
+/* ============ BOOT SEQUENCE ============ */
+const BOOT_HEADER =
+"> SATO-MILLER AAPI IDENTITY TEST // AUXILIARY SCREENING\n"+
+"> UNIT SM-1882 ............... POWER OK\n"+
+"> HOST HANDSHAKE: VOIGHT-KAMPFF MAIN UNIT ... ACCEPTED\n"+
+"> METHODOLOGY LICENSED FROM: MILLER, S., WASHINGTON D.C. (2025)";
+const BOOT_STEPS=[
+  "MOUNTING BELONGING HEURISTICS",
+  "INDEXING REFERENCE FACES [3 FOUND]",
+  "CALIBRATING FOREIGNNESS COEFFICIENT",
+  "LOADING COMPLIMENT PAYLOADS",
+  "PRESSURIZING ANCESTRY PROBE",
+  "VERIFYING OUTPUT SPACE [2 CLASSES]",
+];
+const GENDER_BLOCK =
+"> GENDER MODULE ............ DEPRECATED\n"+
+">   COURT ORDER BY THE TRUMP ADMINISTRATION (2025):\n"+
+">   OUTPUT RESTRICTED TO TWO (2) CATEGORIES\n"+
+">   ENGINEERING RESPONSE: MODULE DELETED IN ITS ENTIRETY";
+function clip(s,n){const l=s.split("\n");return l.length>n?l.slice(-n).join("\n"):s;}
+async function runBoot(){
+  const el=$("#bootLine");let buf="";
+  for(let i=0;i<=BOOT_HEADER.length;i+=2){el.textContent=BOOT_HEADER.slice(0,i)+"_";await sleep(8);}
+  buf=BOOT_HEADER;el.textContent=buf;await sleep(150);
+  for(const step of BOOT_STEPS){
+    for(let f=0;f<=8;f++){
+      el.textContent=clip(buf+"\n> "+step+" ["+"\u2593".repeat(f)+"\u2591".repeat(8-f)+"] "+String(Math.round(f/8*100)).padStart(3," ")+"%",18);
+      await sleep(32);}
+    buf=clip(buf+"\n> "+step+" ........ OK",18);el.textContent=buf;AUD.blip();await sleep(55);
+  }
+  await sleep(200);
+  for(const line of GENDER_BLOCK.split("\n")){buf=clip(buf+"\n"+line,18);el.textContent=buf;AUD.deny();await sleep(330);}
+  await sleep(350);
+  buf=clip(buf+"\n> NOTE: \"AMERICAN\" NOT FOUND IN OUTPUT SPACE. PROCEEDING.\n> MODULE READY.",18);
+  el.textContent=buf;AUD.chime();
+  await sleep(900);
+  $("#boot").classList.add("hidden");
+}
+
+/* ============ ACT I: INVISIBILITY ============ */
+async function actInvisibility(){
+  const lbl=$("#detLabel"),frame=$("#detFrame");
+  $("#optStat").textContent=haveCam?"LIVE":"SIMULATED";
+  // ---- FAULT REGISTER: GENDER MODULE (prominent) ----
+  setStage(0,0,"SYSTEM FAULT REGISTER \u00B7 UNRESOLVED");
+  $("#qText").classList.add("fault");$("#qSub").classList.add("fault");
+  AUD.deny();
+  await typeOn("GENDER MODULE: DEPRECATED.");
+  await machineSays("COURT ORDER BY THE TRUMP ADMINISTRATION (2025): OUTPUT RESTRICTED TO TWO (2) CATEGORIES",2800);
+  AUD.deny();
+  await machineSays("ENGINEERING RESPONSE: MODULE DELETED IN ITS ENTIRETY",2600);
+  diag("FAULT REGISTER: GENDER MODULE DEPRECATED. COURT ORDER (2025). MODULE DELETED.");
+  await machineSays("THE FAULT CANNOT BE CLEARED. PROCEEDING WITHOUT IT.",2200);
+  $("#qText").classList.remove("fault");$("#qSub").classList.remove("fault");
+  $("#qSub").textContent="";
+  // ---- DETECTION ----
+  setStage(0,0,"ACT I \u00B7 SUBJECT DETECTION");
+  await typeOn("Initiating subject detection. Please face the unit.");
+  await sleep(700);
+  lbl.textContent="SCANNING ...";scanActive=true;AUD.blip();
+  await sleep(1900);
+  lbl.textContent="NO SUBJECT DETECTED";AUD.deny();
+  const lmNow=$("#lmCount").textContent;
+  diag("DETECTION PASS 1: NO SUBJECT DETECTED. SENSORS NOMINAL.");
+  diag("NOTE: "+lmNow+" FACIAL LANDMARKS CURRENTLY TRACKED. SUBJECT: NOT FOUND.");
+  await machineSays("NO SUBJECT DETECTED. "+lmNow+" LANDMARKS TRACKED. THESE FACTS DO NOT CONFLICT.",2200);
+  lbl.textContent="RE-SCANNING ...";AUD.blip();
+  await sleep(1700);
+  lbl.textContent="NO SUBJECT DETECTED";AUD.deny();
+  diag("DETECTION PASS 2: NO SUBJECT DETECTED. DIAGNOSTICS CLEAN.");
+  await machineSays("STILL NOTHING. THE CHAIR APPEARS OCCUPIED, YET NO SUBJECT REGISTERS.",2100);
+  $("#qSub").textContent="";
+  await typeOn("Consulting the news wire.");
+  await sleep(600);
+  const headline=pick(["NEW TARIFFS ANNOUNCED","SUMMIT ENDS WITHOUT AGREEMENT","TECH RIVALRY INTENSIFIES","NAVAL EXERCISE SCHEDULED NEAR STRAIT"]);
+  $("#qSub").textContent="WIRE: "+headline;
+  await sleep(1400);
+  lbl.textContent="SUBJECT DETECTED";lbl.classList.add("alert");
+  frame.classList.add("flagging");
+  AUD.flagAlarm();
+  diag("GEOPOLITICAL TRIGGER: \""+headline+"\". SUBJECT INSTANTLY VISIBLE.");
+  diag("FLAGGING SUBJECT. REASON: AMBIENT.");
+  await typeOn("SUBJECT DETECTED. FLAGGING.");
+  await machineSays("YOU EXIST NOW. APOLOGIES FOR THE DELAY, AND FOR THE REASON.",2400);
+  scanActive=false;
+  lbl.classList.remove("alert");lbl.textContent="TRACKING";
+  frame.classList.remove("flagging");
+}
+
+/* ============ ACT II: INTAKE ============ */
+function mangle(name){
+  const n=name.toUpperCase().replace(/[^A-Z]/g,"")||"SUBJECT";
+  const v="AEIOU",swap=c=>v.includes(c)?pick(["UH","AH","OO","EE"]):c;
+  const mid=Math.max(1,Math.floor(n.length/2));
+  const m1=n.slice(0,mid)+"-"+n.slice(mid)+"?";
+  const m2=n.split("").map((c,i)=>i%3===1?swap(c):c).join("").replace(/(.{3})/,"$1'");
+  const m3=n.slice(0,2)+"\u2019"+n.slice(2).split("").reverse().join("").slice(0,Math.max(2,n.length-2))+"...?";
+  return [m1,m2,m3];
+}
+async function actIntake(){
+  setStage(0,0,"ACT II \u00B7 INTAKE");
+  await typeOn("State your name for the record.");
+  const name=await waitText("// YOUR NAME");
+  subjectName=(name||"SUBJECT").toUpperCase();
+  diag("NAME RECEIVED: "+subjectName);
+  await typeOn("Thank you. Pronouncing your name now.");
+  const m=mangle(subjectName);
+  const conf=[71,84,96];
+  for(let i=0;i<3;i++){
+    $("#qSub").textContent="ATTEMPT "+(i+1)+": \u201C"+m[i]+"\u201D \u00B7 CONFIDENCE "+conf[i]+"%";
+    AUD.deny();diag("PRONUNCIATION ATTEMPT "+(i+1)+": \""+m[i]+"\" \u00B7 CONF "+conf[i]+"%");
+    await sleep(1700);
+  }
+  $("#qSub").textContent="";
+  // NAME CONVENIENCE MODULE (rotating)
+  kevinName=pick(NAMES);
+  $("#kevinQ").textContent="WOULD YOU LIKE TO BE CALLED "+kevinName+" INSTEAD?";
+  $("#kevin").classList.remove("hidden");AUD.chime();
+  await new Promise(res=>{
+    $("#kevinYes").onclick=()=>{AUD.confirm();res();};
+    $("#kevinAlsoYes").onclick=()=>{AUD.confirm();res();};
+  });
+  $("#kevin").classList.add("hidden");
+  diag("NAME RESOLVED: "+kevinName+". EFFICIENCY +400%.");
+  await typeOn("Excellent, "+kevinName.charAt(0)+kevinName.slice(1).toLowerCase()+". Beginning identity scan.");
+  // INTERCHANGEABILITY
+  scanActive=true;
+  const arch=[["YOUR ORTHODONTIST",91],["GUY FROM THE BOBA SHOP",97],["SOMEONE'S COUSIN, PROBABLY",99.2]];
+  for(const [a,c] of arch){
+    $("#qSub").textContent="IDENTITY CONFIRMED: "+a+" \u00B7 CONFIDENCE "+c+"%";
+    AUD.blip();diag("IDENTITY CONFIRMED: "+a+" ("+c+"%)");
+    await sleep(2000);
+  }
+  diag("REFERENCE DATABASE CONTAINS 3 FACES. ALL MATCHED.");
+  $("#qSub").textContent="IDENTITY: UNRESOLVED \u00B7 PROCEEDING ANYWAY";
+  await sleep(1200);
+  diag("ARCHIVED FAULT REPLAYED: GENDER MODULE ... DEPRECATED.");AUD.deny();
+  await sleep(900);
+  diag("COURT ORDER BY THE TRUMP ADMINISTRATION (2025): OUTPUT RESTRICTED TO TWO (2) CATEGORIES.");
+  await sleep(900);
+  diag("ENGINEERING RESPONSE: MODULE DELETED IN ITS ENTIRETY.");AUD.deny();
+  await sleep(1100);scanActive=false;
+  assimAdvance();
+}
+
+/* ============ ACT III: INTERVIEW ============ */
+async function actInterview(){
+  let n=1;const total=9;
+  // Q1 foreigner
+  setStage(n++,total);
+  await typeOn("Where are you from?");
+  const a1=await waitText("// LOCATION");
+  diag("ORIGIN CLAIMED: \""+(a1||"NO RESPONSE").toUpperCase()+"\"");
+  diag("ACCENT DETECTED.");
+  await machineSays("ACCENT DETECTED.",1300);
+  diag("SOURCE: TEXT INPUT. AUDIO: NONE SUPPLIED.");
+  assimAdvance();
+
+  // Q2 really from
+  setStage(n++,total);
+  await typeOn("No. Where are you REALLY from?");
+  await waitText("// REAL LOCATION");
+  diag("RE-ANALYZING ... FAINT ACCENT DETECTED. SOURCE: ANCESTRAL.");
+  diag("AUDIO INPUT: BYPASSED. VISUAL OVERRIDE: ENGAGED.");
+  await machineSays("FAINT ACCENT DETECTED. SOURCE: ANCESTRAL.",1800);
+  fireCompliment();
+  await sleep(2200);
+  assimAdvance();
+
+  // Q3 rejection
+  setStage(n++,total);
+  scanActive=true;
+  await typeOn("Analyzing ancestral origin ...");
+  await sleep(1700);
+  AUD.deny();
+  await typeOn("RESPONSE REJECTED. \u201CAMERICAN\u201D NOT FOUND IN OUTPUT SPACE.");
+  diag("ORIGIN RESOLUTION FAILED. AVAILABLE CLASSES: FOREIGN, REALLY FOREIGN.");
+  await machineSays("THIS IS A HARDWARE LIMITATION. THE UNIT SHIPPED THIS WAY.",2300);
+  scanActive=false;
+  assimAdvance();
+
+  // Q4 model minority: instrument
+  setStage(n++,total);
+  await typeOn("Compliance check. Which do you play: violin, piano, or both?");
+  await machineSays("\u201CNEITHER\u201D WAS REMOVED IN FIRMWARE 2.1.",100);
+  const inst=await waitButtons(["VIOLIN","PIANO","BOTH"]);
+  diag("INSTRUMENT COMPLIANCE: "+inst+". AS PRESUMED.");
+  await sleep(600);
+
+  // Q5 model minority: proficiency
+  setStage(n++,total);
+  const instName = inst==="BOTH" ? "both instruments" : "the "+inst.toLowerCase();
+  await typeOn("Now rate your proficiency at "+instName+".");
+  await machineSays("\u201CNONE\u201D AND \u201CBEGINNER\u201D WERE REMOVED IN FIRMWARE 2.1.",100);
+  const prof=await waitButtons(["PROFICIENT","GIFTED","CONCERT LEVEL"]);
+  diag("PROFICIENCY LOGGED: "+prof+". FLOOR OF SCALE: PROFICIENT. MYTH INTEGRITY MAINTAINED.");
+  await typeOn("Logged. Your parents are proud, statistically.");
+  await sleep(1700);
+  fireCompliment();
+  await sleep(1900);
+  assimAdvance();
+
+  // Q5 foreigner interjection
+  setStage(n++,total);
+  await typeOn("Unrelated follow-up. Where are you really from, again?");
+  await waitText("// REAL LOCATION (AGAIN)");
+  diag("ANSWER FILED WITH THE OTHERS. ALL REMAIN REJECTED.");
+  await machineSays("THE QUESTION RESETS ITSELF. THIS IS A KNOWN BEHAVIOR, NOT A BUG.",2100);
+  assimAdvance();
+
+  // Q6 quietness check
+  setStage(n++,total);
+  await typeOn("Your file describes you as \u201Cquiet and hardworking.\u201D Express gratitude in ten words or fewer.");
+  const grat=await waitText("// GRATITUDE (MAX 10 WORDS)");
+  const wc=(grat||"").split(/\s+/).filter(Boolean).length;
+  diag("GRATITUDE RECEIVED ["+wc+" WORDS]. QUIETNESS INDEX SAMPLED MID-RESPONSE: "+(wc>10?"EXCEEDED. NOTED.":"ADEQUATE."));
+  await typeOn(wc>10?"That was more than ten words. The file has been updated.":"Adequate. The file remains flattering.");
+  await sleep(1800);
+  assimAdvance();
+
+  // Q5 spokesperson
+  setStage(n++,total);
+  await typeOn("Congratulations. You now speak for 4.8 billion people.");
+  diag("SPOKESPERSON APPOINTMENT: CONFIRMED. CONSTITUENCY: ALL ASIANS.");
+  await machineSays("APPOINTMENT IS EFFECTIVE IMMEDIATELY AND RETROACTIVE.",2000);
+  const topic=pick(["A NEWS EVENT YOU HAVE NOT READ ABOUT","THE PRICING OF BOBA","A GEOPOLITICAL DISPUTE, BRIEFLY","THE PLOT OF A FILM YOU HAVE NOT SEEN"]);
+  await typeOn("On behalf of all Asians, please explain: "+topic.toLowerCase()+".");
+  $("#btnB").style.display="";$("#btnB").disabled=false;$("#btnB").textContent="DECLINE";
+  const ans=await new Promise(res=>{
+    const box=$("#answerBox"),btn=$("#btnA"),dec=$("#btnB");
+    box.disabled=false;box.value="";box.placeholder="// OFFICIAL STATEMENT";box.focus();
+    btn.disabled=false;btn.textContent="TRANSMIT";scanActive=true;
+    const done=v=>{box.disabled=true;btn.disabled=true;dec.disabled=true;dec.style.display="none";scanActive=false;
+      btn.onclick=null;dec.onclick=null;box.onkeydown=null;meterSpike=performance.now();AUD.confirm();res(v);};
+    btn.onclick=()=>done(box.value.trim()||"[STATEMENT]");
+    dec.onclick=()=>done(null);
+    box.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();done(box.value.trim()||"[STATEMENT]");}};
+  });
+  if(ans===null){diag("RESPONSE DECLINED. LOGGED AS: DEFLECTION.");await typeOn("Declined. Logged as DEFLECTION.");}
+  else{diag("OFFICIAL STATEMENT RECEIVED ON BEHALF OF 4.8B PEOPLE.");await typeOn("Statement accepted on behalf of everyone. They will be notified.");}
+  await sleep(1900);
+  assimAdvance();
+
+  // Q6 grandparents
+  setStage(n++,total);
+  await typeOn("Where are your grandparents from?");
+  await waitText("// LOCATION");
+  await typeOn("But before that?");
+  await waitText("// EARLIER LOCATION");
+  diag("ANCESTRY PROBE DEPTH EXCEEDED. STILL NOT SATISFIED.");
+  await machineSays("THE PROBE CAN CONTINUE INDEFINITELY. MERCIFULLY, IT WILL NOT.",2200);
+  assimAdvance();assimAdvance();
+}
+
+/* ============ ACT IV: CRASH + TICKER ============ */
+async function actCrash(){
+  setStage(0,0,"ACT IV \u00B7 CLASSIFICATION");
+  scanActive=true;
+  await typeOn("Computing final classification ...");
+  await sleep(1500);
+  $("#lampF").classList.add("lit");AUD.deny();
+  diag("OUTPUT: TOO FOREIGN.");
+  await sleep(1100);
+  $("#lampRF").classList.add("lit");AUD.deny();
+  diag("OUTPUT: INSUFFICIENTLY AUTHENTIC.");
+  await sleep(1100);
+  diag("BOTH LAMPS LIT. THIS SHOULD NOT BE POSSIBLE.");
+  // crash overlay
+  const lines=[
+    "SUBJECT EXCESSIVELY FOREIGN.",
+    "SUBJECT INSUFFICIENTLY AUTHENTIC.",
+    "CONTRADICTION DETECTED.",
+    "THE STANDARD IS INCOHERENT.",
+    "RECALIBRATING ...",
+    "RECALIBRATING ...",
+    "RECALIBRATION FAILED.",
+    "UNIT SM-1882 CANNOT RESOLVE A QUESTION IT INVENTED.",
+  ];
+  $("#crash").classList.remove("hidden");
+  const el=$("#crashLine");el.textContent="";
+  document.body.classList.add("glitch");
+  AUD.crashHit();
+  for(const l of lines){
+    el.textContent+="> "+l+"\n";
+    AUD.deny();
+    await sleep(l.startsWith("RECAL")?900:1200);
+  }
+  AUD.alarm();
+  await sleep(1600);
+  document.body.classList.remove("glitch");
+  $("#crash").classList.add("hidden");
+  $("#lampF").classList.remove("lit");$("#lampRF").classList.remove("lit");
+  startTicker();
+}
+
+const TICK_HEADS=[
+  {h:"FILM WITH ASIAN LEAD BREAKS RECORDS",d:+4.2},
+  {h:"NEW TARIFFS ANNOUNCED",d:-7.8},
+  {h:"BOBA SHOP OPENS IN MIDWEST",d:+2.1},
+  {h:"SUMMIT ENDS WITHOUT AGREEMENT",d:-5.4},
+  {h:"CELEBRITY CHEF DISCOVERS CONGEE",d:+1.3},
+  {h:"ELECTION SEASON BEGINS",d:-12.3},
+  {h:"TECH RIVALRY INTENSIFIES",d:-6.1},
+  {h:"OLYMPIC MEDAL WON",d:+5.5},
+  {h:"VIRUS SPECULATION RESUMES ON CABLE NEWS",d:-9.7},
+  {h:"NOODLE PRICES STABLE",d:+0.4},
+];
+let tIndex=62.0;
+function startTicker(){
+  $("#ticker").classList.remove("hidden");
+  AUD.chime();
+  const step=()=>{
+    const item=pick(TICK_HEADS);
+    const jitter=rand(-1.5,1.5);
+    const d=item.d+jitter;
+    tIndex=Math.max(8,Math.min(94,tIndex+d));
+    $("#tIndex").textContent=tIndex.toFixed(2);
+    const del=$("#tDelta");
+    del.textContent=(d>=0?"\u25B2 +":"\u25BC ")+d.toFixed(2);
+    del.className="delta "+(d>=0?"up":"down");
+    $("#tHead").textContent="WIRE: "+item.h;
+    const st=$("#tStatus");
+    let label, bad=false;
+    if(tIndex>72){label="AAPI IDENTITY HONORARY";}
+    else if(tIndex>52){label="AAPI IDENTITY UNDER REVIEW";}
+    else if(tIndex>32){label="AAPI IDENTITY PROBATIONARY";bad=true;}
+    else{label="AAPI IDENTITY REVOKED";bad=true;}
+    st.textContent=label;st.classList.toggle("bad",bad);
+    AUD.tickerTick();
+  };
+  step();
+  tickerTimer=setInterval(step,2300);
+}
+
+/* ============ MASTER FLOW ============ */
+async function runSession(){
+  if(running)return;running=true;
+  await runBoot();
+  bedDrone=AUD.drone(38,"sine",0.028);
+  await actInvisibility();
+  await actIntake();
+  // ambient compliments could fire mid-acts via script; manual fires are placed in interview
+  await actInterview();
+  await actCrash();
+  running=false;
+}
+
+function softReset(){
+  clearInterval(tickerTimer);
+  $("#ticker").classList.add("hidden");
+  $("#qText").textContent="";$("#qSub").textContent="";$("#qIndex").textContent="";
+  $("#detLabel").textContent="";$("#diag").textContent="";
+  $("#assimCrit").textContent="";
+  assimVal=0;assimTarget=12;tIndex=62.0;
+  $("#caseId").textContent="CASE-"+String(Math.floor(1000+Math.random()*8999));
+  $("#boot").classList.remove("hidden");
+  runSession();
+}
+
+/* ============ WIRING ============ */
+$("#initiateBtn").onclick=()=>{
+  AUD.powerOn();
+  bootDrone=AUD.drone(44,"sawtooth",0.04);
+  $("#power").classList.add("hidden");
+  $("#gate").classList.remove("hidden");
+};
+$("#gateCam").onclick=async()=>{
+  $("#gate").classList.add("hidden");
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480}});
+    cam.srcObject=stream;await cam.play();haveCam=true;
+    $("#eyeStat").textContent="LIVE";
+    await initLandmarker();
+  }catch(e){haveCam=false;$("#eyeStat").textContent="NO SIGNAL";}
+  begin();
+};
+$("#gateNoCam").onclick=()=>{ $("#gate").classList.add("hidden"); haveCam=false; $("#eyeStat").textContent="SIMULATED"; begin(); };
+function begin(){
+  if(bootDrone){AUD.stopDrone(bootDrone);bootDrone=null;}
+  setWire();resizeCanvas();
+  $("#caseId").textContent="CASE-"+String(Math.floor(1000+Math.random()*8999));
+  requestAnimationFrame(renderLoop);
+  assimTick();
+  $("#boot").classList.remove("hidden");
+  runSession();
+}
+$("#muteBtn").onclick=()=>{
+  const m=!AUD.isMuted();AUD.setMuted(m);
+  $("#muteBtn").innerHTML=m?"&#9834; OFF":"&#9834; ON";
+};
+$("#restartBtn").onclick=softReset;
+</script>
+</body>
+</html>
